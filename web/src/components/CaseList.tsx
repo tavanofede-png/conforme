@@ -2,7 +2,7 @@
 
 import { ArrowRightIcon, CircleNotchIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { postJson, type OperationResponse } from "@/lib/client";
 import type { PurchaseOrder } from "@/lib/domain";
 import { formatNumber } from "@/lib/normalize";
@@ -19,6 +19,9 @@ export function CaseList({ cases }: { cases: CaseOption[] }) {
   const router = useRouter();
   const [opening, setOpening] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Next conserva la página oculta al navegar; al volver, los casos tienen que estar disponibles.
+  useLayoutEffect(() => () => setOpening(null), []);
 
   async function open(option: CaseOption) {
     setOpening(option.id);
@@ -44,7 +47,7 @@ export function CaseList({ cases }: { cases: CaseOption[] }) {
                 onClick={() => open(option)}
                 disabled={opening !== null}
                 aria-busy={opening === option.id}
-                className="group grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-baseline gap-x-4 px-4 py-4 text-left transition-colors hover:bg-subtle/60 disabled:cursor-wait sm:px-5"
+                className="group grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-baseline gap-x-4 px-4 py-4 text-left transition-colors hover:bg-white/45 disabled:cursor-wait sm:px-5"
               >
                 <span className="font-medium">{option.title}</span>
                 <span className="font-mono text-sm text-ink-2 tabular-nums">

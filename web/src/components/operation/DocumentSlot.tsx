@@ -109,7 +109,7 @@ export function DocumentSlot({
 
   return (
     <article
-      className={`-mx-3 rounded-md px-3 py-5 transition-colors ${dragging ? "bg-subtle" : ""}`}
+      className={`-mx-3 rounded-md px-3 py-5 transition-colors ${dragging ? "dropzone" : ""}`}
       onDragOver={(e) => {
         e.preventDefault();
         if (!locked) setDragging(true);
@@ -121,7 +121,7 @@ export function DocumentSlot({
 
       <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
-          <h3 className="font-semibold tracking-tight">{DOC_LABELS[kind]}</h3>
+          <h3 className="font-medium">{DOC_LABELS[kind]}</h3>
           {doc ? (
             <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
               <a
@@ -136,7 +136,7 @@ export function DocumentSlot({
               {doc.simulated && <span>· simulado</span>}
             </p>
           ) : (
-            <p className="mt-0.5 text-sm text-ink-2">{DOC_HINTS[kind]}</p>
+            <p className="mt-0.5 text-sm text-muted">{DOC_HINTS[kind]}</p>
           )}
         </div>
 
@@ -239,7 +239,8 @@ export function DocumentSlot({
               <label key={key} className="block">
                 <span className="label">{labels[key]}</span>
                 <input
-                  className={`field ${NUMERIC_FIELDS.has(key) || key === "hsCode" ? "font-mono" : ""} ${flags[key] === "error" ? "border-bad" : ""}`}
+                  className={`field ${NUMERIC_FIELDS.has(key) || key === "hsCode" ? "font-mono" : ""}`}
+                  aria-invalid={flags[key] === "error" ? true : undefined}
                   type={DATE_FIELDS.has(key) ? "date" : "text"}
                   inputMode={NUMERIC_FIELDS.has(key) ? "decimal" : undefined}
                   value={editing[key] ?? ""}

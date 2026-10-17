@@ -48,14 +48,14 @@ export function ProtectedPayment({
 
   return (
     <section aria-labelledby="pago-protegido">
-      <h2 id="pago-protegido" className="text-sm font-semibold">
+      <h2 id="pago-protegido" className="text-[15px] font-medium">
         Pago protegido
       </h2>
-      <p className="mt-2 text-2xl font-semibold tracking-[-0.02em] whitespace-nowrap tabular-nums">
-        <span className="text-sm font-medium text-muted">{po.currency} </span>
-        {formatNumber(po.amount, 2)}
+      <p className="mt-3 whitespace-nowrap">
+        <span className="mr-1 text-sm font-medium text-muted">{po.currency}</span>
+        <span className="numeral text-[2rem]">{formatNumber(po.amount, 2)}</span>
       </p>
-      <p className="mt-1 text-sm text-ink-2">{STATUS_TEXT[escrow.status]}</p>
+      <p className="mt-2 text-sm text-ink-2">{STATUS_TEXT[escrow.status]}</p>
 
       <ol className="mt-4 grid grid-cols-3 border-t border-line text-xs" aria-label="Dónde está el dinero">
         {HOLDERS.map((label, i) => (

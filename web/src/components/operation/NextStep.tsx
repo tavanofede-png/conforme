@@ -112,18 +112,18 @@ export function NextStep({
       <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between md:gap-10">
         <div className="min-w-0">
           <p className="text-sm text-muted">{closed ? "Operación cerrada" : "Próximo paso"}</p>
-          <h2 className="mt-1 flex items-center gap-2.5 text-xl leading-snug font-semibold tracking-tight md:text-2xl">
+          <h2 className="mt-1.5 flex items-center gap-2.5 text-[1.375rem] leading-snug font-medium tracking-[-0.02em] md:text-[1.625rem]">
             {spin && <CircleNotchIcon size={20} className="shrink-0 animate-spin text-muted" />}
             {title}
           </h2>
           <p className="mt-2 max-w-2xl leading-relaxed text-pretty text-ink-2">{text}</p>
           {escrow.lastError && !pending && (
-            <p role="alert" className="mt-3 rounded-md bg-bad-soft px-3 py-2 text-sm text-bad">
+            <p role="alert" className="mt-3 rounded-lg bg-bad-soft px-3 py-2 text-sm text-bad">
               {escrow.lastError}
             </p>
           )}
           {chain && !chain.ready && escrow.status === "sin-fondos" && (
-            <p className="mt-3 rounded-md bg-warn-soft px-3 py-2 text-sm text-warn">{chain.problem}</p>
+            <p className="mt-3 rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn">{chain.problem}</p>
           )}
         </div>
 

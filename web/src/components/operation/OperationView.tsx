@@ -90,7 +90,7 @@ export function OperationView({ initial }: { initial: Operation }) {
 
       <header className="mt-6 flex flex-col gap-5 md:flex-row md:items-end md:justify-between md:gap-10">
         <div className="min-w-0">
-          <h1 className="text-[1.75rem] leading-tight font-semibold tracking-[-0.03em] md:text-4xl">{po.sellerName}</h1>
+          <h1 className="text-[2rem] leading-[1.08] font-[450] tracking-[-0.03em] md:text-[2.5rem]">{po.sellerName}</h1>
           <p className="mt-2 text-ink-2">
             {po.goodsDescription} · {formatNumber(po.quantity)} {po.unit}
           </p>
@@ -100,11 +100,11 @@ export function OperationView({ initial }: { initial: Operation }) {
           </p>
         </div>
         <div className="shrink-0 md:text-right">
-          <p className="text-3xl font-semibold tracking-[-0.03em] whitespace-nowrap tabular-nums">
-            <span className="text-base font-medium text-muted">{po.currency} </span>
-            {formatNumber(po.amount, 2)}
+          <p className="whitespace-nowrap">
+            <span className="mr-1.5 text-sm font-medium text-muted">{po.currency}</span>
+            <span className="numeral text-[2.75rem] md:text-[3.25rem]">{formatNumber(po.amount, 2)}</span>
           </p>
-          <StatusText tone={status.tone} className="mt-1">
+          <StatusText tone={status.tone} className="mt-2">
             {status.label}
           </StatusText>
         </div>
@@ -113,7 +113,7 @@ export function OperationView({ initial }: { initial: Operation }) {
       <Timeline op={op} />
 
       {error && (
-        <div role="alert" className="mt-6 flex items-start justify-between gap-4 rounded-md bg-bad-soft px-4 py-3 text-sm text-bad">
+        <div role="alert" className="mt-6 flex items-start justify-between gap-4 rounded-xl bg-bad-soft px-4 py-3 text-sm text-bad">
           <span>{error}</span>
           <button className="shrink-0 rounded p-0.5 hover:bg-bad/10" onClick={() => setError(null)} aria-label="Cerrar el aviso">
             <XIcon size={16} />
@@ -143,7 +143,7 @@ export function OperationView({ initial }: { initial: Operation }) {
 
           <section aria-labelledby="documentos">
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-              <h2 id="documentos" className="text-lg font-semibold tracking-tight">
+              <h2 id="documentos" className="text-2xl leading-tight font-[450] tracking-[-0.02em]">
                 Documentos de embarque
               </h2>
               <span className="text-sm text-muted tabular-nums">{docs} de 3</span>

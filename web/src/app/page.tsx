@@ -42,7 +42,7 @@ export default function Home() {
     <>
       <section className="mx-auto grid max-w-6xl gap-10 px-5 pt-10 pb-16 sm:gap-12 md:pt-20 md:pb-24 lg:grid-cols-[minmax(0,1fr)_minmax(0,28rem)] lg:gap-16">
         <div>
-          <h1 className="max-w-[18ch] text-[2.25rem] leading-[1.05] font-semibold tracking-[-0.035em] sm:text-[2.5rem] md:text-[3.5rem]">
+          <h1 className="max-w-[18ch] text-[2.25rem] leading-[1.05] font-[450] tracking-[-0.03em] sm:text-[2.5rem] md:text-[3.5rem]">
             Revisá los documentos de embarque antes de liberar el pago.
           </h1>
           <p className="mt-5 max-w-[34rem] leading-relaxed text-ink-2 sm:mt-6 sm:text-lg">
@@ -53,7 +53,7 @@ export default function Home() {
         </div>
 
         <div>
-          <h2 className="font-semibold">Probá con un caso real</h2>
+          <h2 className="text-[17px] font-medium">Probá con un caso real</h2>
           <p className="mt-1 text-sm text-ink-2">Abre la operación con la orden de compra ya cargada.</p>
           <div className="mt-4">
             <Suspense fallback={<CasesSkeleton />}>
@@ -75,7 +75,7 @@ export default function Home() {
           Entre el 65 y el 80 % de los documentos presentados bajo carta de crédito se rechazan en la primera
           presentación, casi siempre por datos que no coinciden entre sí (ICC).
         </p>
-        <Suspense fallback={<div className="mt-10 h-56 animate-pulse rounded-md bg-subtle" />}>
+        <Suspense fallback={<div className="mt-10 h-56 animate-pulse rounded-xl bg-subtle" />}>
           <ReviewExample />
         </Suspense>
       </Band>
@@ -85,7 +85,7 @@ export default function Home() {
           {STEPS.map((step, i) => (
             <li key={step.title}>
               <span className="font-mono text-xs text-muted">{String(i + 1).padStart(2, "0")}</span>
-              <h3 className="mt-2 font-semibold">{step.title}</h3>
+              <h3 className="mt-2 font-medium">{step.title}</h3>
               <p className="mt-1.5 text-sm leading-relaxed text-ink-2">{step.text}</p>
             </li>
           ))}
@@ -111,7 +111,7 @@ function Band({ title, id, children }: { title: string; id?: string; children: R
   return (
     <section id={id} className="mx-auto max-w-6xl scroll-mt-4 px-5">
       <div className="grid gap-6 border-t border-line py-14 md:grid-cols-[12rem_minmax(0,1fr)] md:gap-12 md:py-20">
-        <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+        <h2 className="text-xl font-[450] tracking-[-0.02em]">{title}</h2>
         <div className="min-w-0">{children}</div>
       </div>
     </section>
@@ -140,7 +140,7 @@ async function ReviewExample() {
         </figcaption>
         <span className="stamp mt-1 mr-1 shrink-0 text-xs text-ink-2 sm:text-sm">Observado</span>
       </div>
-      <div className="mt-6 border-t border-ink/80 text-sm">
+      <div className="mt-6 border-t border-line-strong text-sm">
         <div className="hidden grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_minmax(0,1fr)_6.5rem] gap-4 border-b border-line py-2 text-xs text-muted sm:grid">
           <span>Control</span>
           <span>Esperado</span>
@@ -199,7 +199,7 @@ async function RecentOperations() {
   }
 
   return (
-    <ul className="border-t border-ink/80">
+    <ul className="border-t border-line-strong">
       {operations.map((op) => {
         const status = operationStatus(op);
         return (
@@ -243,7 +243,7 @@ function CasesSkeleton() {
 
 function OperationsSkeleton() {
   return (
-    <div className="border-t border-ink/80" aria-hidden>
+    <div className="border-t border-line-strong" aria-hidden>
       {[0, 1].map((i) => (
         <div key={i} className="space-y-2 border-b border-line py-4">
           <div className="h-4 w-1/3 animate-pulse rounded bg-subtle" />

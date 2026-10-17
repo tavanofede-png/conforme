@@ -2,7 +2,7 @@
 
 import { CaretDownIcon, CircleNotchIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { postJson, type OperationResponse } from "@/lib/client";
 import { NCM_TO_DEFINE, TO_DEFINE, type PurchaseOrder } from "@/lib/domain";
 import { formatDate, formatNumber, parseNumber } from "@/lib/normalize";
@@ -94,6 +94,20 @@ export function NewOperationForm({ defaults }: { defaults: FormDefaults }) {
   const [advanced, setAdvanced] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const created = useRef(false);
+
+  // Next conserva la página oculta al navegar: después de crear la operación, la próxima visita empieza de cero.
+  useLayoutEffect(
+    () => () => {
+      if (!created.current) return;
+      created.current = false;
+      setForm(initial);
+      setErrors({});
+      setAdvanced(false);
+      setSending(false);
+    },
+    [initial],
+  );
 
   const derivedKeywords = keywordsFrom(form.goodsDescription);
   const keywords = form.goodsKeywords.trim() ? splitList(form.goodsKeywords) : derivedKeywords;
@@ -148,6 +162,7 @@ export function NewOperationForm({ defaults }: { defaults: FormDefaults }) {
         weightTolerancePct: num(form.weightTolerancePct || "0"),
       };
       const { operation } = await postJson<OperationResponse>("/api/operations", po);
+      created.current = true;
       router.push(`/operaciones/${operation.id}`);
     } catch (err) {
       setApiError((err as Error).message);
@@ -276,11 +291,11 @@ export function NewOperationForm({ defaults }: { defaults: FormDefaults }) {
       </div>
 
       <aside className="lg:sticky lg:top-8 lg:self-start">
-        <h3 className="text-sm font-semibold">Orden de compra</h3>
+        <h3 className="text-[15px] font-medium">Orden de compra</h3>
         {amount != null && amount > 0 && (
-          <p className="mt-3 text-[1.75rem] leading-none font-semibold tracking-[-0.03em] tabular-nums">
-            <span className="text-base font-medium text-muted">{form.currency || "USD"} </span>
-            {formatNumber(amount, 2)}
+          <p className="mt-3 whitespace-nowrap">
+            <span className="mr-1 text-sm font-medium text-muted">{form.currency || "USD"}</span>
+            <span className="numeral text-[2rem]">{formatNumber(amount, 2)}</span>
           </p>
         )}
         {summary.length > 0 && (
@@ -315,7 +330,7 @@ export function NewOperationForm({ defaults }: { defaults: FormDefaults }) {
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
     <fieldset className="border-t border-line pt-5">
-      <legend className="float-left mb-4 w-full text-sm font-semibold">{title}</legend>
+      <legend className="float-left mb-4 w-full text-sm font-medium">{title}</legend>
       <div className="clear-left grid gap-x-4 gap-y-4 sm:grid-cols-6">{children}</div>
     </fieldset>
   );

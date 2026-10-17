@@ -18,7 +18,7 @@ export function PoSummary({ op }: { op: Operation }) {
   ];
   return (
     <section aria-labelledby="orden-de-compra">
-      <h2 id="orden-de-compra" className="text-sm font-semibold">
+      <h2 id="orden-de-compra" className="text-[15px] font-medium">
         Orden de compra
       </h2>
       <dl className="mt-3 divide-y divide-line border-y border-line text-sm">
@@ -39,7 +39,7 @@ export function EventLog({ op }: { op: Operation }) {
   const shown = all ? events : events.slice(0, 5);
   return (
     <section aria-labelledby="historial">
-      <h2 id="historial" className="text-sm font-semibold">
+      <h2 id="historial" className="text-[15px] font-medium">
         Historial
       </h2>
       <ol className="mt-3 divide-y divide-line border-y border-line">
