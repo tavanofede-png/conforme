@@ -206,10 +206,10 @@ async function RecentOperations() {
           <li key={op.id} className="border-b border-line">
             <Link
               href={`/operaciones/${op.id}`}
-              className="group grid gap-x-8 gap-y-1.5 py-4 sm:grid-cols-[minmax(0,1fr)_auto_11rem] sm:items-center"
+              className="group grid gap-x-6 gap-y-1.5 py-4 sm:grid-cols-[minmax(0,1fr)_auto_11rem] sm:items-center"
             >
               <span className="min-w-0">
-                <span className="block truncate font-medium group-hover:underline group-hover:decoration-line-strong group-hover:underline-offset-4">
+                <span className="block font-medium group-hover:underline group-hover:decoration-line-strong group-hover:underline-offset-4">
                   {op.po.sellerName}
                 </span>
                 <span className="block truncate text-sm text-muted">
