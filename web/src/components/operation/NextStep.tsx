@@ -1,10 +1,10 @@
 "use client";
 
 import { ArrowSquareOutIcon, CircleNotchIcon } from "@phosphor-icons/react";
+import type { ReactNode } from "react";
 import type { ChainInfo } from "@/lib/chain";
-import type { Operation } from "@/lib/domain";
-import { formatNumber } from "@/lib/normalize";
-import { documentCount } from "@/lib/status";
+import { DOC_LABELS, requiredDocKinds, type Operation } from "@/lib/domain";
+import { formatDate, formatNumber } from "@/lib/normalize";
 
 type Busy = string | null;
 
@@ -30,6 +30,8 @@ export function NextStep({
   onFund,
   onSimulate,
   onVerify,
+  audience = "importer",
+  fundExtra = null,
 }: {
   op: Operation;
   chain: ChainInfo | null;
@@ -38,9 +40,11 @@ export function NextStep({
   onFund: () => void;
   onSimulate: (set: "conforme" | "con-errores") => void;
   onVerify: () => void;
+  audience?: "importer" | "supplier";
+  fundExtra?: ReactNode;
 }) {
   const { escrow, po } = op;
-  const docs = documentCount(op);
+  const missing = requiredDocKinds(po).filter((kind) => !op.documents[kind]);
   const verdict = op.verification?.verdict;
   const amount = `${po.currency} ${formatNumber(po.amount, 0)}`;
   const slow = chain?.network === "rskTestnet";
@@ -70,10 +74,16 @@ export function NextStep({
       ? slow
         ? "La red confirma la transacción en unos 30 segundos."
         : "Esperando la confirmación de la red."
-      : "Comparando factura, packing list y BL con la orden de compra.";
+      : "Comparando los documentos con la orden de compra.";
+  } else if (escrow.status === "liberado" && audience === "importer" && !op.customs) {
+    title = "Registrá el ingreso aduanero";
+    text = "El proveedor ya cobró. Cuando la mercadería ingresa, anotá el despacho para cerrar el seguimiento del pago.";
+    if (releaseHref) link = { href: releaseHref, label: "Ver la transacción" };
   } else if (escrow.status === "liberado") {
-    title = "Pago liberado al proveedor";
-    text = `${po.sellerName} cobró ${po.currency} ${formatNumber(po.amount, 2)}. La huella de los documentos aprobados quedó registrada en el contrato.`;
+    title = op.customs ? "Seguimiento cerrado" : "Pago liberado al proveedor";
+    text = op.customs
+      ? `Ingreso ${op.customs.declarationNumber} del ${formatDate(op.customs.enteredAt)}. ${po.sellerName} ya cobró ${po.currency} ${formatNumber(po.amount, 2)}.`
+      : `${po.sellerName} cobró ${po.currency} ${formatNumber(po.amount, 2)}. La huella de los documentos aprobados quedó registrada en el contrato.`;
     if (releaseHref) link = { href: releaseHref, label: "Ver la transacción" };
   } else if (escrow.status === "devuelto") {
     title = "Operación cancelada";
@@ -83,25 +93,34 @@ export function NextStep({
     text =
       verdict === "conforme"
         ? "Apenas deposites, el contrato le paga al proveedor."
-        : "El monto queda en un contrato y se libera al proveedor cuando los documentos estén conformes.";
-    primary = { key: "fund", label: `Depositar ${amount}`, busyLabel: "Depositando…", run: onFund, disabled: chain?.ready !== true };
-  } else if (docs < 3) {
-    title = docs === 0 ? "Esperando los documentos de embarque" : `Falta ${3 - docs === 1 ? "un documento" : `${3 - docs} documentos`}`;
-    text = "Factura comercial, packing list y conocimiento de embarque. Subilos abajo o simulá el envío del proveedor.";
-    simulations = [simulate("con-errores", "Con discrepancias"), simulate("conforme", "Sin discrepancias")];
+        : "El monto queda en un contrato y se libera al proveedor cuando los documentos estén conformes. Depositar usa la cuenta de la demo; con tu billetera, la firma es tuya.";
+    if (audience === "supplier") {
+      title = "El importador todavía no depositó";
+      text = "Podés ir subiendo los documentos. El pago sale cuando estén conformes y el depósito esté hecho.";
+    } else {
+      primary = { key: "fund", label: `Depositar ${amount}`, busyLabel: "Depositando…", run: onFund, disabled: chain?.ready !== true };
+    }
+  } else if (missing.length > 0) {
+    const names = missing.map((kind) => DOC_LABELS[kind]).join(", ");
+    title = missing.length === requiredDocKinds(po).length ? "Esperando los documentos de embarque" : `Falta ${missing.length === 1 ? "un documento" : `${missing.length} documentos`}`;
+    text = audience === "supplier" ? `Subí: ${names}.` : `${names}. Subilos abajo o simulá el envío del proveedor.`;
+    if (audience === "importer") simulations = [simulate("con-errores", "Con discrepancias"), simulate("conforme", "Sin discrepancias")];
   } else if (!op.verification) {
     title = "Documentos completos";
-    text = "Revisalos contra la orden de compra. Si están conformes, el pago sale en el momento.";
-    primary = { key: "verify", label: "Revisar documentos", busyLabel: "Revisando…", run: onVerify };
+    text =
+      audience === "supplier"
+        ? "El importador tiene que revisar los documentos. Si están conformes, el contrato te paga."
+        : "Revisalos contra la orden de compra. Si están conformes, el pago sale en el momento.";
+    if (audience === "importer") primary = { key: "verify", label: "Revisar documentos", busyLabel: "Revisando…", run: onVerify };
   } else if (verdict === "observado") {
     title = "Pedile al proveedor que corrija los documentos";
     text = `El pago sigue protegido por ${errors === 1 ? "una discrepancia" : `${errors} discrepancias`}. Si fue un error de lectura, corregí el dato y volvé a revisar.`;
-    simulations = [simulate("conforme", "Simular la corrección")];
+    if (audience === "importer") simulations = [simulate("conforme", "Simular la corrección")];
     simulationText = "Generá el juego corregido que mandaría el proveedor.";
   } else {
     title = "Documentos conformes: falta liberar el pago";
-    text = "La liberación no se completó. Probá de nuevo.";
-    primary = { key: "verify", label: "Reintentar la liberación", busyLabel: "Liberando…", run: onVerify };
+    text = audience === "supplier" ? "La liberación quedó pendiente. El importador puede reintentarla." : "La liberación no se completó. Probá de nuevo.";
+    if (audience === "importer") primary = { key: "verify", label: "Reintentar la liberación", busyLabel: "Liberando…", run: onVerify };
   }
 
   const locked = !!busy || !!pending;
@@ -135,6 +154,7 @@ export function NextStep({
                 {label(primary)}
               </button>
             )}
+            {fundExtra}
             {link && (
               <a href={link.href} target="_blank" rel="noreferrer" className="btn btn-secondary">
                 {link.label}

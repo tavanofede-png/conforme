@@ -30,7 +30,7 @@ export function ProtectedPayment({
   op: Operation;
   chain: ChainInfo | null;
   busy: string | null;
-  onRefund: () => void;
+  onRefund?: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
   const { escrow, po } = op;
@@ -69,7 +69,7 @@ export function ProtectedPayment({
         ))}
       </ol>
 
-      {escrow.status === "en-custodia" && (
+      {onRefund && escrow.status === "en-custodia" && (
         <div className="mt-4">
           {confirming ? (
             <div className="border-l-2 border-ink pl-3 text-sm">

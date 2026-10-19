@@ -289,6 +289,19 @@
   }
 }
 
+@media print {
+  header,
+  .no-print {
+    display: none !important;
+  }
+  html {
+    background: #fff;
+  }
+  body {
+    color: #111;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

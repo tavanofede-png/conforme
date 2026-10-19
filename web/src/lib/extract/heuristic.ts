@@ -73,6 +73,32 @@ const LABELS: { [K in DocKind]: LabelSpec } = {
     packages: PACKAGES,
     grossWeightKg: GROSS,
   },
+  certificateOfOrigin: {
+    certificateNumber: [String.raw`certificate\s*${NO}`, String.raw`certificado\s*${NO}`],
+    exporter: [String.raw`exporter`, String.raw`exportador`],
+    importer: [String.raw`importer`, String.raw`importador`, String.raw`consignee`],
+    countryOfOrigin: [String.raw`country\s*of\s*origin`, String.raw`pa[ií]s\s*de\s*origen`, String.raw`origin`],
+    invoiceNumber: [String.raw`invoice\s*(?:ref\.?|reference|${NO})`, String.raw`factura\s*${NO}`],
+    description: DESCRIPTION,
+    hsCode: HS,
+  },
+  insurance: {
+    policyNumber: [String.raw`policy\s*${NO}`, String.raw`p[oó]liza\s*${NO}`],
+    insured: [String.raw`insured`, String.raw`assured`, String.raw`asegurado`],
+    amount: [String.raw`sum\s*insured`, String.raw`insured\s*amount`, String.raw`suma\s*asegurada`],
+    currency: [String.raw`currency`, String.raw`moneda`],
+    coverage: [String.raw`coverage`, String.raw`coberturas?`, String.raw`clauses?`],
+    invoiceNumber: [String.raw`invoice\s*(?:ref\.?|reference|${NO})`, String.raw`factura\s*${NO}`],
+    description: DESCRIPTION,
+  },
+  sanitary: {
+    certificateNumber: [String.raw`certificate\s*${NO}`, String.raw`certificado\s*${NO}`],
+    exporter: [String.raw`exporter`, String.raw`exportador`],
+    importer: [String.raw`importer`, String.raw`importador`],
+    description: DESCRIPTION,
+    authority: [String.raw`authority`, String.raw`autoridad`, String.raw`issued\s*by`],
+    issuedOn: [String.raw`date\s*of\s*issue`, String.raw`fecha\s*de\s*emisi[oó]n`, String.raw`issued\s*on`],
+  },
 };
 
 /** Etiquetas que cortan el valor anterior aunque no las leamos. */

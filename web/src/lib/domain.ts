@@ -1,13 +1,33 @@
 import { z } from "zod";
 
-export const DOC_KINDS = ["invoice", "packingList", "billOfLading"] as const;
+export const DOC_KINDS = ["invoice", "packingList", "billOfLading", "certificateOfOrigin", "insurance", "sanitary"] as const;
 export type DocKind = (typeof DOC_KINDS)[number];
 
 export const DOC_LABELS: Record<DocKind, string> = {
   invoice: "Factura comercial",
   packingList: "Packing list",
   billOfLading: "Conocimiento de embarque (BL)",
+  certificateOfOrigin: "Certificado de origen",
+  insurance: "Póliza de seguro",
+  sanitary: "Certificado sanitario",
 };
+
+/** CIF y CIP incluyen el seguro en el precio: sin póliza el juego está incompleto. */
+export function needsInsurance(po: Pick<PurchaseOrder, "incoterm">): boolean {
+  return po.incoterm.toUpperCase() === "CIF" || po.incoterm.toUpperCase() === "CIP";
+}
+
+export function needsSanitary(po: Pick<PurchaseOrder, "requiresSanitary">): boolean {
+  return po.requiresSanitary === true;
+}
+
+/** Documentos sin los cuales no se libera el pago. El resto solo entra si la orden lo pide. */
+export function requiredDocKinds(po: PurchaseOrder): DocKind[] {
+  const kinds: DocKind[] = ["invoice", "packingList", "billOfLading", "certificateOfOrigin"];
+  if (needsInsurance(po)) kinds.push("insurance");
+  if (needsSanitary(po)) kinds.push("sanitary");
+  return kinds;
+}
 
 export const purchaseOrderSchema = z.object({
   buyerName: z.string().trim().min(2),
@@ -29,6 +49,8 @@ export const purchaseOrderSchema = z.object({
   currency: z.string().trim().length(3),
   quantityTolerancePct: z.number().min(0).max(10).default(0),
   weightTolerancePct: z.number().min(0).max(20).default(5),
+  /** Certificado sanitario o fitosanitario, cuando la mercadería lo exige. */
+  requiresSanitary: z.boolean().optional(),
 });
 
 export type PurchaseOrder = z.infer<typeof purchaseOrderSchema>;
@@ -77,10 +99,42 @@ export interface BillOfLadingFields {
   grossWeightKg: number | null;
 }
 
+export interface CertificateOfOriginFields {
+  certificateNumber: string | null;
+  exporter: string | null;
+  importer: string | null;
+  countryOfOrigin: string | null;
+  invoiceNumber: string | null;
+  description: string | null;
+  hsCode: string | null;
+}
+
+export interface InsuranceFields {
+  policyNumber: string | null;
+  insured: string | null;
+  amount: number | null;
+  currency: string | null;
+  coverage: string | null;
+  invoiceNumber: string | null;
+  description: string | null;
+}
+
+export interface SanitaryFields {
+  certificateNumber: string | null;
+  exporter: string | null;
+  importer: string | null;
+  description: string | null;
+  authority: string | null;
+  issuedOn: string | null;
+}
+
 export interface DocFieldsByKind {
   invoice: InvoiceFields;
   packingList: PackingListFields;
   billOfLading: BillOfLadingFields;
+  certificateOfOrigin: CertificateOfOriginFields;
+  insurance: InsuranceFields;
+  sanitary: SanitaryFields;
 }
 
 export type AnyDocFields = InvoiceFields | PackingListFields | BillOfLadingFields;
@@ -123,6 +177,32 @@ export const FIELD_LABELS: { [K in DocKind]: Record<keyof DocFieldsByKind[K], st
     packages: "Bultos",
     grossWeightKg: "Peso bruto (kg)",
   },
+  certificateOfOrigin: {
+    certificateNumber: "Número de certificado",
+    exporter: "Exportador",
+    importer: "Importador",
+    countryOfOrigin: "País de origen",
+    invoiceNumber: "Factura de referencia",
+    description: "Descripción",
+    hsCode: "Posición arancelaria",
+  },
+  insurance: {
+    policyNumber: "Número de póliza",
+    insured: "Asegurado",
+    amount: "Suma asegurada",
+    currency: "Moneda",
+    coverage: "Cobertura",
+    invoiceNumber: "Factura de referencia",
+    description: "Descripción",
+  },
+  sanitary: {
+    certificateNumber: "Número de certificado",
+    exporter: "Exportador",
+    importer: "Importador",
+    description: "Descripción",
+    authority: "Autoridad",
+    issuedOn: "Fecha de emisión",
+  },
 };
 
 export const NUMERIC_FIELDS = new Set([
@@ -132,9 +212,10 @@ export const NUMERIC_FIELDS = new Set([
   "packages",
   "netWeightKg",
   "grossWeightKg",
+  "amount",
 ]);
 
-export const DATE_FIELDS = new Set(["date", "shippedOnBoardDate"]);
+export const DATE_FIELDS = new Set(["date", "shippedOnBoardDate", "issuedOn"]);
 
 export function emptyFields<K extends DocKind>(kind: K): DocFieldsByKind[K] {
   const keys = Object.keys(FIELD_LABELS[kind]);
@@ -205,6 +286,19 @@ export interface OperationEvent {
   message: string;
 }
 
+/** Enlaces que no se adivinan. El del proveedor permite subir; el del informe es de solo lectura. */
+export interface OperationAccess {
+  supplierToken: string;
+  reportToken: string;
+}
+
+/** Cierre del seguimiento cuando la mercadería ya ingresó. */
+export interface CustomsEntry {
+  declarationNumber: string;
+  enteredAt: string;
+  recordedAt: string;
+}
+
 export interface Operation {
   id: string;
   createdAt: string;
@@ -213,4 +307,6 @@ export interface Operation {
   verification?: VerificationResult;
   escrow: EscrowState;
   events: OperationEvent[];
+  access?: OperationAccess;
+  customs?: CustomsEntry;
 }

@@ -39,12 +39,41 @@ const FIELD_HINTS: { [K in DocKind]: Record<keyof DocFieldsByKind[K], string> } 
     packages: "number of packages, integer",
     grossWeightKg: "gross weight in kg, plain number",
   },
+  certificateOfOrigin: {
+    certificateNumber: "certificate number",
+    exporter: "exporter company name only",
+    importer: "importer company name only",
+    countryOfOrigin: "country of origin",
+    invoiceNumber: "referenced invoice number",
+    description: "description of goods as written",
+    hsCode: "HS / NCM code as written",
+  },
+  insurance: {
+    policyNumber: "policy number",
+    insured: "insured party company name only",
+    amount: "sum insured, plain number",
+    currency: "ISO 4217 currency code",
+    coverage: "coverage or institute cargo clauses, as written",
+    invoiceNumber: "referenced invoice number",
+    description: "description of goods as written",
+  },
+  sanitary: {
+    certificateNumber: "certificate number",
+    exporter: "exporter company name only",
+    importer: "importer company name only",
+    description: "description of goods as written",
+    authority: "issuing authority",
+    issuedOn: "date of issue, YYYY-MM-DD",
+  },
 };
 
 const DOC_NAMES: Record<DocKind, string> = {
   invoice: "commercial invoice",
   packingList: "packing list",
   billOfLading: "ocean bill of lading",
+  certificateOfOrigin: "certificate of origin",
+  insurance: "cargo insurance policy",
+  sanitary: "sanitary or phytosanitary certificate",
 };
 
 export function llmConfig() {

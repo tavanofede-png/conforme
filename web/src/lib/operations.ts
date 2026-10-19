@@ -1,5 +1,6 @@
-import { ChainError, docsHashOf, explainChainError, fundDeal, refundDeal, releaseDeal } from "./chain";
+import { ChainError, docsHashOf, explainChainError, fundDeal, readDeal, refundDeal, releaseDeal } from "./chain";
 import {
+  DOC_KINDS,
   DOC_LABELS,
   FIELD_LABELS,
   type DocFieldsByKind,
@@ -10,6 +11,7 @@ import {
 } from "./domain";
 import { ACCEPTED_TYPES, extractDocument } from "./extract";
 import { coerceFields } from "./extract/coerce";
+import { formatDate } from "./normalize";
 import { verify, type DocsToVerify } from "./rules";
 import { generateSamples, SAMPLE_SETS, type SampleSet } from "./samples";
 import { addEvent, getOperation, NotFoundError, saveUpload, updateOperation } from "./store";
@@ -94,11 +96,12 @@ export async function correctFields(id: string, kind: DocKind, patch: Record<str
 }
 
 function docsOf(op: Operation): DocsToVerify {
-  return {
-    invoice: op.documents.invoice?.fields,
-    packingList: op.documents.packingList?.fields,
-    billOfLading: op.documents.billOfLading?.fields,
-  };
+  const docs: DocsToVerify = {};
+  for (const kind of DOC_KINDS) {
+    const fields = op.documents[kind]?.fields;
+    if (fields) (docs as Record<DocKind, unknown>)[kind] = fields;
+  }
+  return docs;
 }
 
 function isBusy(op: Operation): boolean {
@@ -180,6 +183,47 @@ export async function fundOperation(id: string): Promise<Operation> {
     return fail(id, err, "No se pudo depositar el pago");
   }
   return releaseIfReady(id);
+}
+
+/** El importador depositó desde su billetera: confirmamos el estado en el contrato y lo anotamos. */
+export async function confirmWalletFund(id: string, approveTx: string, fundTx: string): Promise<Operation> {
+  if (!/^0x[a-fA-F0-9]{64}$/.test(fundTx) || (approveTx && !/^0x[a-fA-F0-9]{64}$/.test(approveTx))) {
+    throw new UserError("La transacción no tiene un identificador válido.");
+  }
+  const op = await claim(id, "fund", (o) => {
+    if (o.escrow.status !== "sin-fondos") throw new UserError("El pago de esta operación ya se depositó.");
+  });
+  try {
+    const deal = await readDeal(op.escrow.dealId);
+    if (deal.status !== "en-custodia") {
+      throw new ChainError("La billetera no llegó a depositar los fondos en el contrato. Revisá que la transacción haya confirmado.");
+    }
+    await updateOperation(id, (o) => {
+      Object.assign(o.escrow, {
+        status: "en-custodia",
+        network: process.env.CHAIN_NETWORK ?? "localhost",
+        amountUnits: deal.amount.toString(),
+        approveTx: approveTx || undefined,
+        fundTx,
+        pending: undefined,
+      });
+      addEvent(o, `Pago protegido: el importador firmó el depósito de ${o.po.currency} ${o.po.amount.toLocaleString("es-AR")} con su billetera.`);
+    });
+  } catch (err) {
+    return fail(id, err, "No se pudo registrar el depósito");
+  }
+  return releaseIfReady(id);
+}
+
+export async function recordCustoms(id: string, declarationNumber: string, enteredAt: string): Promise<Operation> {
+  const number = declarationNumber.trim();
+  if (number.length < 4) throw new UserError("Indicá el número de despacho.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(enteredAt)) throw new UserError("Elegí la fecha de ingreso.");
+  return updateOperation(id, (op) => {
+    if (op.escrow.status !== "liberado") throw new UserError("El ingreso se registra cuando el pago ya se liberó.");
+    op.customs = { declarationNumber: number, enteredAt, recordedAt: new Date().toISOString() };
+    addEvent(op, `Ingreso aduanero ${number} del ${formatDate(enteredAt)}. Se cierra el seguimiento del pago.`);
+  });
 }
 
 export async function refundOperation(id: string): Promise<Operation> {

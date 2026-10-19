@@ -16,6 +16,9 @@ const SHORT_DOC: Record<DocKind, string> = {
   invoice: "Factura",
   packingList: "Packing list",
   billOfLading: "BL",
+  certificateOfOrigin: "Origen",
+  insurance: "Seguro",
+  sanitary: "Sanitario",
 };
 
 const STEPS = [
@@ -29,7 +32,7 @@ const STEPS = [
   },
   {
     title: "Documentos de embarque",
-    text: "El proveedor sube la factura comercial, el packing list y el conocimiento de embarque.",
+    text: "El proveedor sube la factura, el packing list, el conocimiento de embarque y el certificado de origen. Si el precio incluye seguro, también la póliza.",
   },
   {
     title: "Resultado de la revisión",

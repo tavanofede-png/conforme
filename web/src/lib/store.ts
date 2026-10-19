@@ -1,12 +1,9 @@
 import { createHash, randomBytes } from "node:crypto";
-import { promises as fs } from "node:fs";
-import path from "node:path";
 import { id as keccak } from "ethers";
-import type { DocKind, Operation, PurchaseOrder } from "./domain";
+import type { DocKind, Operation, OperationAccess, PurchaseOrder } from "./domain";
+import { readBytes, readJson, writeBytes, writeJson } from "./persist";
 
-const DATA_DIR = process.env.CONFORME_DATA_DIR ?? path.join(process.cwd(), "data");
-const DB_FILE = path.join(DATA_DIR, "db.json");
-const UPLOADS_DIR = path.join(DATA_DIR, "uploads");
+const DB_PATH = "db.json";
 
 export const OPERATION_ID = /^OP-\d{8}-[A-F0-9]{4}$/;
 
@@ -24,17 +21,19 @@ function serialized<T>(task: () => Promise<T>): Promise<T> {
 }
 
 async function readDb(): Promise<Db> {
-  try {
-    return JSON.parse(await fs.readFile(DB_FILE, "utf8")) as Db;
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return { operations: [] };
-    throw err;
-  }
+  return readJson<Db>(DB_PATH, { operations: [] });
 }
 
 async function writeDb(db: Db) {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(DB_FILE, JSON.stringify(db, null, 2));
+  await writeJson(DB_PATH, db);
+}
+
+function newToken(): string {
+  return randomBytes(16).toString("hex");
+}
+
+export function newAccess(): OperationAccess {
+  return { supplierToken: newToken(), reportToken: newToken() };
 }
 
 export function dealIdOf(operationId: string): string {
@@ -72,6 +71,7 @@ export async function createOperation(po: PurchaseOrder): Promise<Operation> {
       documents: {},
       escrow: { status: "sin-fondos", dealId: dealIdOf(id) },
       events: [],
+      access: newAccess(),
     };
     addEvent(op, `Orden de compra cargada: ${po.buyerName} le compra a ${po.sellerName.replace(/\.$/, "")}.`);
     db.operations.push(op);
@@ -92,6 +92,29 @@ export async function updateOperation(id: string, mutate: (op: Operation) => voi
   });
 }
 
+/** Crea los enlaces del proveedor y del informe la primera vez que se abre una operación vieja. */
+export async function ensureAccess(id: string): Promise<Operation> {
+  const current = await getOperation(id);
+  if (!current) throw new NotFoundError(id);
+  if (current.access?.supplierToken && current.access.reportToken) return current;
+  return updateOperation(id, (op) => {
+    op.access = {
+      supplierToken: op.access?.supplierToken || newToken(),
+      reportToken: op.access?.reportToken || newToken(),
+    };
+  });
+}
+
+export async function findByToken(token: string): Promise<{ operation: Operation; role: "supplier" | "report" } | null> {
+  if (!/^[a-f0-9]{32}$/.test(token)) return null;
+  const db = await serialized(readDb);
+  for (const operation of db.operations) {
+    if (operation.access?.supplierToken === token) return { operation, role: "supplier" };
+    if (operation.access?.reportToken === token) return { operation, role: "report" };
+  }
+  return null;
+}
+
 export class NotFoundError extends Error {
   constructor(id: string) {
     super(`No existe la operación ${id}`);
@@ -107,10 +130,8 @@ const EXTENSIONS: Record<string, string> = {
 
 export async function saveUpload(operationId: string, kind: DocKind, mimeType: string, bytes: Uint8Array) {
   const sha256 = sha256Hex(bytes);
-  const dir = path.join(UPLOADS_DIR, operationId);
-  await fs.mkdir(dir, { recursive: true });
   const storedAs = `${kind}-${sha256.slice(0, 12)}.${EXTENSIONS[mimeType] ?? "bin"}`;
-  await fs.writeFile(path.join(dir, storedAs), bytes);
+  await writeBytes(`uploads/${operationId}/${storedAs}`, bytes, mimeType);
   return { storedAs, sha256 };
 }
 
@@ -118,5 +139,5 @@ export async function readUpload(operationId: string, storedAs: string): Promise
   if (!OPERATION_ID.test(operationId) || !/^[a-zA-Z]+-[a-f0-9]{12}\.[a-z]+$/.test(storedAs)) {
     throw new NotFoundError(operationId);
   }
-  return fs.readFile(path.join(UPLOADS_DIR, operationId, storedAs));
+  return readBytes(`uploads/${operationId}/${storedAs}`);
 }

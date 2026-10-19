@@ -13,7 +13,7 @@ const DELIVERED_AT_ORIGIN = new Set(["EXW", "FCA", "FAS", "FOB"]);
 
 const STOPWORDS = new Set(["para", "desde", "hasta", "como", "entre", "sobre", "tipo", "marca", "modelo", "unidades", "pulgada", "pulgadas"]);
 
-type Key = keyof PurchaseOrder;
+type Key = Exclude<keyof PurchaseOrder, "requiresSanitary">;
 type FormState = Record<Key, string>;
 
 const MAIN: Key[] = ["sellerName", "goodsDescription", "amount", "portOfDischarge"];
@@ -94,6 +94,7 @@ export function NewOperationForm({ defaults }: { defaults: FormDefaults }) {
   const [advanced, setAdvanced] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [sanitary, setSanitary] = useState(false);
   const created = useRef(false);
 
   // Next conserva la página oculta al navegar: después de crear la operación, la próxima visita empieza de cero.
@@ -104,6 +105,7 @@ export function NewOperationForm({ defaults }: { defaults: FormDefaults }) {
       setForm(initial);
       setErrors({});
       setAdvanced(false);
+      setSanitary(false);
       setSending(false);
     },
     [initial],
@@ -160,6 +162,7 @@ export function NewOperationForm({ defaults }: { defaults: FormDefaults }) {
         currency: form.currency.trim().toUpperCase(),
         quantityTolerancePct: num(form.quantityTolerancePct || "0"),
         weightTolerancePct: num(form.weightTolerancePct || "0"),
+        ...(sanitary ? { requiresSanitary: true } : {}),
       };
       const { operation } = await postJson<OperationResponse>("/api/operations", po);
       created.current = true;
@@ -245,6 +248,10 @@ export function NewOperationForm({ defaults }: { defaults: FormDefaults }) {
               <Field label="Posición NCM" className="sm:col-span-2" mono placeholder={TO_DEFINE} {...field("hsCode")} />
               <Field label="Cantidad" className="sm:col-span-2" mono inputMode="decimal" {...field("quantity")} />
               <Field label="Unidad" className="sm:col-span-2" {...field("unit")} />
+              <label className="flex items-start gap-3 text-sm sm:col-span-6">
+                <input type="checkbox" className="mt-1" checked={sanitary} onChange={(e) => setSanitary(e.target.checked)} />
+                <span>Esta mercadería necesita certificado sanitario o fitosanitario.</span>
+              </label>
               <Field label="Bultos" className="sm:col-span-2" mono inputMode="numeric" {...field("packages")} />
               <Field label="Peso bruto" className="sm:col-span-2" mono inputMode="decimal" suffix="kg" {...field("grossWeightKg")} />
             </Group>
