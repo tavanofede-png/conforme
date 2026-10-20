@@ -1,13 +1,18 @@
 import {
-  DOC_KINDS,
   DOC_LABELS,
+  needsInsurance,
+  needsSanitary,
+  requiredDocKinds,
   type BillOfLadingFields,
+  type CertificateOfOriginFields,
   type Check,
   type CheckStatus,
   type DocKind,
+  type InsuranceFields,
   type InvoiceFields,
   type PackingListFields,
   type PurchaseOrder,
+  type SanitaryFields,
   type VerificationResult,
 } from "./domain";
 import {
@@ -27,6 +32,9 @@ export interface DocsToVerify {
   invoice?: InvoiceFields;
   packingList?: PackingListFields;
   billOfLading?: BillOfLadingFields;
+  certificateOfOrigin?: CertificateOfOriginFields;
+  insurance?: InsuranceFields;
+  sanitary?: SanitaryFields;
 }
 
 const PRESENTATION_DAYS = 21;
@@ -55,7 +63,8 @@ export function verify(po: PurchaseOrder, docs: DocsToVerify, today: string = to
     extra: Partial<Pick<Check, "expected" | "found" | "fix">> = {},
   ) => checks.push({ id, label, status, detail, rule, documents, ...extra });
 
-  const missingDocs = DOC_KINDS.filter((k) => !docs[k]);
+  const required = requiredDocKinds(po);
+  const missingDocs = required.filter((k) => !docs[k]);
   for (const kind of missingDocs) {
     add(`docs.${kind}`, `Falta: ${DOC_LABELS[kind]}`, "error", "Sin este documento no se puede liberar el pago.", "Documentos exigidos por la orden de compra", [kind], {
       fix: "Pedile al proveedor que lo suba.",
@@ -329,6 +338,132 @@ export function verify(po: PurchaseOrder, docs: DocsToVerify, today: string = to
       expected: `${kg(po.grossWeightKg)} ± ${formatNumber(po.weightTolerancePct)}%`,
       found: kg(gross),
     });
+  }
+
+  const origin = docs.certificateOfOrigin;
+  if (origin) {
+    companyCheck(add, {
+      id: "origin.exporter",
+      label: "Exportador en el certificado de origen",
+      found: origin.exporter,
+      expected: po.sellerName,
+      rule: "Acuerdo de origen: el certificado lo emite el exportador de la factura",
+      doc: "certificateOfOrigin",
+      fix: "El certificado tiene que estar a nombre del mismo proveedor.",
+    });
+    companyCheck(add, {
+      id: "origin.importer",
+      label: "Importador en el certificado de origen",
+      found: origin.importer,
+      expected: po.buyerName,
+      rule: "El certificado de origen se emite para el importador de la operación",
+      doc: "certificateOfOrigin",
+      fix: "Pedí que corrijan la razón social del importador.",
+    });
+    if (!origin.countryOfOrigin) {
+      add("origin.country", "País de origen", "error", "El certificado no indica el país de origen.", "Certificado de origen", ["certificateOfOrigin"], {
+        fix: "Sin el país de origen no se puede aplicar la preferencia arancelaria.",
+      });
+    } else {
+      add("origin.country", "País de origen", "ok", "El certificado indica el país de origen.", "Certificado de origen", ["certificateOfOrigin"], {
+        found: origin.countryOfOrigin,
+      });
+    }
+    if (origin.hsCode && digitsOnly(origin.hsCode).slice(0, 8) !== poNcm.slice(0, 8)) {
+      add("origin.hsCode", "Posición arancelaria en el origen", "error", "La posición del certificado de origen no es la de la orden de compra.", "Nomenclatura Común del MERCOSUR", ["certificateOfOrigin"], {
+        expected: formatNcm(po.hsCode),
+        found: formatNcm(origin.hsCode),
+        fix: "El certificado y la factura tienen que usar la misma posición.",
+      });
+    } else if (origin.hsCode) {
+      add("origin.hsCode", "Posición arancelaria en el origen", "ok", "Coincide con la orden de compra.", "Nomenclatura Común del MERCOSUR", ["certificateOfOrigin"], {
+        found: formatNcm(origin.hsCode),
+      });
+    }
+    if (origin.invoiceNumber && inv?.invoiceNumber && origin.invoiceNumber !== inv.invoiceNumber) {
+      add("origin.invoice", "Factura citada en el origen", "error", "El certificado de origen cita otra factura.", "El certificado tiene que corresponder a esta factura", ["certificateOfOrigin", "invoice"], {
+        expected: inv.invoiceNumber,
+        found: origin.invoiceNumber,
+      });
+    } else if (origin.invoiceNumber) {
+      add("origin.invoice", "Factura citada en el origen", "ok", "El certificado corresponde a la factura.", "El certificado tiene que corresponder a esta factura", ["certificateOfOrigin"], {
+        found: origin.invoiceNumber,
+      });
+    }
+  }
+
+  const policy = docs.insurance;
+  if (policy || needsInsurance(po)) {
+    if (policy) {
+      companyCheck(add, {
+        id: "insurance.insured",
+        label: "Asegurado",
+        found: policy.insured,
+        expected: po.buyerName,
+        rule: "Incoterms 2020, CIF/CIP: el seguro cubre al comprador",
+        doc: "insurance",
+        fix: "La póliza tiene que estar a nombre del importador, o endosada a su favor.",
+      });
+      if (policy.amount == null) {
+        add("insurance.amount", "Suma asegurada", "error", "La póliza no indica la suma asegurada.", "Incoterms 2020, CIF/CIP: cobertura mínima del 110 % del valor", ["insurance"], {
+          expected: money(po.amount, po.currency),
+          fix: "Pedí la póliza con el importe cubierto.",
+        });
+      } else if (policy.amount + 0.01 < po.amount) {
+        add("insurance.amount", "Suma asegurada", "error", "La suma asegurada no cubre el valor de la factura.", "Incoterms 2020, CIF/CIP", ["insurance"], {
+          expected: money(po.amount, po.currency),
+          found: money(policy.amount, policy.currency ?? po.currency),
+          fix: "El seguro tiene que cubrir al menos el importe de la operación.",
+        });
+      } else {
+        add("insurance.amount", "Suma asegurada", "ok", "La póliza cubre el valor de la operación.", "Incoterms 2020, CIF/CIP", ["insurance"], {
+          found: money(policy.amount, policy.currency ?? po.currency),
+        });
+      }
+      if (policy.currency && normalizeCurrency(policy.currency) !== po.currency) {
+        add("insurance.currency", "Moneda del seguro", "error", "La póliza está en otra moneda.", "La cobertura tiene que estar en la moneda del pago", ["insurance"], {
+          expected: po.currency,
+          found: policy.currency,
+        });
+      }
+      if (!policy.coverage) {
+        add("insurance.coverage", "Cobertura", "error", "La póliza no dice qué cubre.", "Incoterms 2020, CIF/CIP: cláusulas de carga (A), como mínimo", ["insurance"], {
+          fix: "Pedí una cobertura de cláusulas de carga A, o la que acuerden.",
+        });
+      } else {
+        add("insurance.coverage", "Cobertura", "ok", "La póliza indica la cobertura.", "Incoterms 2020, CIF/CIP", ["insurance"], { found: policy.coverage });
+      }
+    }
+  }
+
+  const sanitary = docs.sanitary;
+  if (sanitary || needsSanitary(po)) {
+    if (sanitary) {
+      companyCheck(add, {
+        id: "sanitary.exporter",
+        label: "Exportador en el certificado sanitario",
+        found: sanitary.exporter,
+        expected: po.sellerName,
+        rule: "El certificado sanitario corresponde al exportador de la mercadería",
+        doc: "sanitary",
+        fix: "El certificado tiene que estar a nombre del proveedor.",
+      });
+      const missingGoods = missingKeywords(sanitary.description, po.goodsKeywords);
+      if (!sanitary.description || missingGoods.length === po.goodsKeywords.length) {
+        add("sanitary.goods", "Mercadería en el certificado sanitario", "error", "El certificado sanitario no describe la mercadería acordada.", "El certificado tiene que cubrir esta mercadería", ["sanitary"], {
+          expected: po.goodsDescription,
+          found: sanitary.description ?? "—",
+          fix: "Pedí un certificado que mencione esta mercadería.",
+        });
+      } else {
+        add("sanitary.goods", "Mercadería en el certificado sanitario", "ok", "El certificado cubre la mercadería.", "El certificado tiene que cubrir esta mercadería", ["sanitary"], {
+          found: sanitary.description,
+        });
+      }
+      if (!sanitary.issuedOn) {
+        add("sanitary.date", "Fecha del certificado sanitario", "warning", "El certificado no tiene fecha de emisión.", "Certificado sanitario", ["sanitary"]);
+      }
+    }
   }
 
   const errors = checks.filter((c) => c.status === "error").length;

@@ -240,6 +240,31 @@ export async function readDeal(dealId: string) {
   return { status: DEAL_STATUS[Number(deal.status)] ?? "sin-fondos", amount: deal.amount as bigint };
 }
 
+/** Datos públicos para que el importador firme el depósito desde su billetera. */
+export async function fundParameters(op: Operation) {
+  const s = await setup();
+  const problem = configProblem(s);
+  if (problem) throw new ChainError(problem);
+  const c = connect(s);
+  const decimals = Number(await c.tokenRead.decimals());
+  const amount = parseUnits(op.po.amount.toFixed(decimals), decimals);
+  const byShipment = Date.parse(`${addDays(op.po.latestShipmentDate, 30)}T23:59:59Z`);
+  const deadline = Math.floor(Math.max(byShipment, Date.now() + 7 * 86_400_000) / 1000);
+  return {
+    chainId: s.meta.chainId,
+    chainName: s.meta.label,
+    rpcUrl: s.rpcUrl,
+    gasSymbol: s.meta.gasSymbol,
+    explorer: s.meta.explorer,
+    escrow: c.escrowAddress,
+    token: c.tokenAddress,
+    seller: c.seller,
+    dealId: op.escrow.dealId,
+    amount: amount.toString(),
+    deadline,
+  };
+}
+
 export async function fundDeal(op: Operation) {
   const s = await setup();
   const c = connect(s);

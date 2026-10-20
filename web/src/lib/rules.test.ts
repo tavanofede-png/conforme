@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import type { DocKind } from "./domain";
+import { requiredDocKinds, type DocKind } from "./domain";
 import { extractDocument } from "./extract";
 import { verify, type DocsToVerify } from "./rules";
 import type { PurchaseOrder } from "./domain";
@@ -74,7 +74,7 @@ describe("verify", () => {
   it("sin documentos queda INCOMPLETO", () => {
     const result = verify(po, {}, TODAY);
     expect(result.verdict).toBe("incompleto");
-    expect(result.errors).toBe(3);
+    expect(result.errors).toBe(requiredDocKinds(po).length);
   });
 
   it("marca el embarque tardío y el BL a la orden", async () => {

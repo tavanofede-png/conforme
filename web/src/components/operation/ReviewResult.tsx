@@ -13,6 +13,9 @@ const SHORT_DOC: Record<DocKind, string> = {
   invoice: "Factura",
   packingList: "Packing list",
   billOfLading: "BL",
+  certificateOfOrigin: "Origen",
+  insurance: "Seguro",
+  sanitary: "Sanitario",
 };
 
 export function ReviewResult({ op }: { op: Operation }) {

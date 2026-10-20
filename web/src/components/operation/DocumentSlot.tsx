@@ -11,6 +11,9 @@ const DOC_HINTS: Record<DocKind, string> = {
   invoice: "La emite el proveedor. Precio, cantidad, Incoterm y posición arancelaria.",
   packingList: "Bultos y pesos. Tiene que coincidir con la factura y el BL.",
   billOfLading: "Lo emite la naviera. Prueba el embarque y a quién se entrega la mercadería.",
+  certificateOfOrigin: "País de origen, exportador e importador. Tiene que citar esta factura.",
+  insurance: "Obligatoria en CIF y CIP. La suma asegurada cubre al importador.",
+  sanitary: "Solo si la mercadería lo exige. Tiene que describir esta mercadería.",
 };
 
 /** Los datos que mejor resumen cada documento, en el orden en que se leen. */
@@ -18,6 +21,9 @@ const KEY_FACTS: Record<DocKind, string[]> = {
   invoice: ["totalAmount", "quantity", "hsCode", "incoterm"],
   packingList: ["quantity", "packages", "netWeightKg", "grossWeightKg"],
   billOfLading: ["portOfLoading", "portOfDischarge", "shippedOnBoardDate", "grossWeightKg"],
+  certificateOfOrigin: ["countryOfOrigin", "exporter", "hsCode", "invoiceNumber"],
+  insurance: ["amount", "coverage", "insured", "policyNumber"],
+  sanitary: ["authority", "exporter", "issuedOn", "certificateNumber"],
 };
 
 const FACT_LABELS: Record<string, string> = {
@@ -31,6 +37,16 @@ const FACT_LABELS: Record<string, string> = {
   portOfLoading: "Carga",
   portOfDischarge: "Descarga",
   shippedOnBoardDate: "A bordo",
+  countryOfOrigin: "Origen",
+  exporter: "Exportador",
+  invoiceNumber: "Factura",
+  amount: "Suma",
+  coverage: "Cobertura",
+  insured: "Asegurado",
+  policyNumber: "Póliza",
+  authority: "Autoridad",
+  issuedOn: "Emisión",
+  certificateNumber: "Número",
 };
 
 const ACCEPT = "application/pdf,image/png,image/jpeg,image/webp";
@@ -45,8 +61,8 @@ function display(key: string, value: unknown): string {
 }
 
 function factValue(key: string, fields: Record<string, unknown>): string {
-  if (key === "totalAmount" && fields.totalAmount != null) {
-    return `${fields.currency ?? ""} ${display(key, fields.totalAmount)}`.trim();
+  if ((key === "totalAmount" || key === "amount") && fields[key] != null) {
+    return `${fields.currency ?? ""} ${display(key, fields[key])}`.trim();
   }
   if (key === "incoterm" && fields.incoterm) return `${fields.incoterm} ${fields.incotermPlace ?? ""}`.trim();
   if ((key === "grossWeightKg" || key === "netWeightKg") && fields[key] != null) return `${display(key, fields[key])} kg`;

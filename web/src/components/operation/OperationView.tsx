@@ -5,27 +5,32 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { flaggedFields } from "@/lib/check-fields";
 import { api, postJson, type OperationResponse } from "@/lib/client";
-import { DOC_KINDS, TO_DEFINE, type DocKind, type Operation, type StoredDoc } from "@/lib/domain";
+import { requiredDocKinds, TO_DEFINE, type DocKind, type Operation, type StoredDoc } from "@/lib/domain";
 import { formatDate, formatNumber } from "@/lib/normalize";
-import { documentCount, operationStatus } from "@/lib/status";
+import { documentCount, documentsExpected, operationStatus } from "@/lib/status";
 import { useChain } from "@/lib/use-chain";
 import { StatusText } from "../StatusText";
+import { CustomsForm } from "./CustomsForm";
 import { DocumentSlot } from "./DocumentSlot";
 import { NextStep } from "./NextStep";
+import { ShareLinks } from "./ShareLinks";
+import { WalletFund } from "./WalletFund";
 import { explorerTx, ProtectedPayment } from "./ProtectedPayment";
 import { ReviewResult } from "./ReviewResult";
 import { EventLog, PoSummary } from "./SidePanels";
 import { Timeline } from "./Timeline";
 
-export function OperationView({ initial }: { initial: Operation }) {
+export function OperationView({ initial, role = "importer", token }: { initial: Operation; role?: "importer" | "supplier"; token?: string }) {
   const [op, setOp] = useState(initial);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { info: chain, refresh: refreshChain } = useChain();
   const reviewRef = useRef<HTMLDivElement>(null);
-  const base = `/api/operations/${op.id}`;
+  const base = role === "supplier" && token ? `/api/access/${token}` : `/api/operations/${op.id}`;
   const status = operationStatus(op);
   const docs = documentCount(op);
+  const expected = documentsExpected(op);
+  const kinds = requiredDocKinds(op.po);
   const closed = op.escrow.status === "liberado" || op.escrow.status === "devuelto";
   const releaseHref = explorerTx(chain, op.escrow.network, op.escrow.releaseTx);
 
@@ -65,7 +70,7 @@ export function OperationView({ initial }: { initial: Operation }) {
 
   const save = (kind: DocKind, fields: Record<string, string>) =>
     run(`save:${kind}`, () =>
-      api<OperationResponse>(`${base}/documents/${kind}`, {
+      api<OperationResponse>(`/api/operations/${op.id}/documents/${kind}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fields }),
@@ -74,12 +79,20 @@ export function OperationView({ initial }: { initial: Operation }) {
 
   const simulate = (set: "conforme" | "con-errores") => run(`samples:${set}`, () => postJson(`${base}/samples`, { set }));
   const verify = () => run("verify", () => postJson(`${base}/verify`, {}), true);
-  const escrow = (action: "fund" | "refund") => run(action, () => postJson(`${base}/escrow`, { action }), true);
+  const escrow = (action: "fund" | "refund") => run(action, () => postJson(`/api/operations/${op.id}/escrow`, { action }), true);
+  const confirmFund = (approveTx: string, fundTx: string) =>
+    run("fund", () => postJson(`/api/operations/${op.id}/escrow`, { action: "confirm-fund", approveTx, fundTx }), true);
+  const saveCustoms = (declarationNumber: string, enteredAt: string) =>
+    run("customs", () => postJson(`/api/operations/${op.id}/customs`, { declarationNumber, enteredAt }));
 
   const { po } = op;
 
   return (
     <div className="mx-auto max-w-6xl px-5 pt-8 pb-24">
+      {role === "supplier" && (
+        <p className="mb-5 text-sm text-ink-2">Vista del proveedor. Podés subir los documentos y ver por qué el pago sigue protegido. El depósito y la liberación los hace el importador.</p>
+      )}
+
       <nav aria-label="Ruta" className="flex items-center gap-2 text-sm text-muted">
         <Link href="/#operaciones" className="hover:text-ink">
           Operaciones
@@ -110,6 +123,8 @@ export function OperationView({ initial }: { initial: Operation }) {
         </div>
       </header>
 
+      {role === "importer" && <ShareLinks supplierToken={op.access?.supplierToken} reportToken={op.access?.reportToken} />}
+
       <Timeline op={op} />
 
       {error && (
@@ -130,6 +145,12 @@ export function OperationView({ initial }: { initial: Operation }) {
           onFund={() => escrow("fund")}
           onSimulate={simulate}
           onVerify={verify}
+          audience={role}
+          fundExtra={
+            role === "importer" && op.escrow.status === "sin-fondos" ? (
+              <WalletFund operationId={op.id} disabled={!!busy || !!op.escrow.pending} onConfirmed={confirmFund} />
+            ) : null
+          }
         />
       </div>
 
@@ -146,11 +167,11 @@ export function OperationView({ initial }: { initial: Operation }) {
               <h2 id="documentos" className="text-2xl leading-tight font-[450] tracking-[-0.02em]">
                 Documentos de embarque
               </h2>
-              <span className="text-sm text-muted tabular-nums">{docs} de 3</span>
+              <span className="text-sm text-muted tabular-nums">{docs} de {expected}</span>
             </div>
             {!closed && <p className="mt-0.5 text-sm text-muted">PDF con texto, hasta 10 MB. También podés arrastrarlos.</p>}
             <div className="mt-2 divide-y divide-line border-y border-line">
-              {DOC_KINDS.map((kind) => (
+              {kinds.map((kind) => (
                 <DocumentSlot
                   key={kind}
                   kind={kind}
@@ -168,7 +189,10 @@ export function OperationView({ initial }: { initial: Operation }) {
         </div>
 
         <aside className="space-y-10">
-          <ProtectedPayment op={op} chain={chain} busy={busy} onRefund={() => escrow("refund")} />
+          <ProtectedPayment op={op} chain={chain} busy={busy} onRefund={role === "importer" ? () => escrow("refund") : undefined} />
+          {role === "importer" && (
+            <CustomsForm op={op} busy={busy === "customs"} onSave={saveCustoms} />
+          )}
           <PoSummary op={op} />
           <EventLog op={op} />
         </aside>

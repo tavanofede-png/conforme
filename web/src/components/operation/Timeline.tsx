@@ -20,7 +20,7 @@ export function Timeline({ op }: { op: Operation }) {
   const active = steps.find((s) => s.state === "current" || s.state === "blocked") ?? steps[steps.length - 1];
   return (
     <div className="mt-8">
-      <ol className="grid grid-cols-5 gap-1.5 sm:gap-3" aria-label="Etapas de la operación">
+      <ol className="grid grid-cols-6 gap-1.5 sm:gap-3" aria-label="Etapas de la operación">
         {steps.map((s) => (
           <li key={s.key} aria-current={s.state === "current" ? "step" : undefined}>
             <span className="sr-only">

@@ -1,5 +1,5 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
-import type { DocKind, PurchaseOrder } from "./domain";
+import { needsInsurance, needsSanitary, type DocKind, type PurchaseOrder } from "./domain";
 import { addDays, daysBetween, digitsOnly, formatNcm, stripAccents } from "./normalize";
 import { todayIso } from "./rules";
 
@@ -335,6 +335,87 @@ export function buildSampleContent(po: PurchaseOrder, set: SampleSet, today: str
         },
       ],
     },
+    {
+      kind: "certificateOfOrigin",
+      fileName: `origen-${invoiceNumber}.pdf`,
+      title: "CERTIFICATE OF ORIGIN",
+      issuer: seller,
+      issuerLines,
+      sections: [
+        {
+          heading: "Certificate",
+          rows: [
+            ["Certificate No.", `CO-${invoiceNumber}`],
+            ["Exporter", seller],
+            ["Importer", buyer],
+            ["Invoice No.", invoiceNumber],
+            ["Country of Origin", (origin?.country ?? po.portOfLoading).toUpperCase()],
+          ],
+        },
+        {
+          heading: "Goods",
+          rows: [
+            ["Description of Goods", description],
+            ["HS Code", formatNcm(po.hsCode)],
+          ],
+        },
+      ],
+    },
+    ...(needsInsurance(po)
+      ? [
+          {
+            kind: "insurance" as const,
+            fileName: `seguro-${invoiceNumber}.pdf`,
+            title: "CARGO INSURANCE POLICY",
+            issuer: "ATLANTIC CARGO UNDERWRITERS",
+            issuerLines: ["Marine cargo policy", "Institute Cargo Clauses (A)"],
+            sections: [
+              {
+                heading: "Policy",
+                rows: [
+                  ["Policy No.", `POL-${invoiceNumber}`],
+                  ["Insured", buyer],
+                  ["Invoice No.", invoiceNumber],
+                  ["Sum Insured", `${po.currency} ${en(po.amount, 2)}`],
+                  ["Currency", po.currency],
+                  ["Coverage", "Institute Cargo Clauses (A), all risks"],
+                ],
+              },
+              {
+                heading: "Goods",
+                rows: [["Description of Goods", description]],
+              },
+            ],
+          } satisfies SampleContent,
+        ]
+      : []),
+    ...(needsSanitary(po)
+      ? [
+          {
+            kind: "sanitary" as const,
+            fileName: `sanitario-${invoiceNumber}.pdf`,
+            title: "SANITARY CERTIFICATE",
+            issuer: "EXPORT HEALTH AUTHORITY",
+            issuerLines: ["Official certificate", origin?.country ?? po.portOfLoading],
+            sections: [
+              {
+                heading: "Certificate",
+                rows: [
+                  ["Certificate No.", `SAN-${invoiceNumber}`],
+                  ["Exporter", seller],
+                  ["Importer", buyer],
+                  ["Authority", "Export Health Authority"],
+                  ["Date of Issue", invoiceDateText(invoiceDate)],
+                ],
+              },
+              {
+                heading: "Goods",
+                rows: [["Description of Goods", description]],
+              },
+            ],
+          } satisfies SampleContent,
+        ]
+      : []),
   ];
 }
 

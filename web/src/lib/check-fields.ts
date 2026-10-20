@@ -25,6 +25,18 @@ const CHECK_FIELDS: Record<string, Partial<Record<DocKind, string[]>>> = {
   "weight.consistency": { packingList: ["grossWeightKg"], billOfLading: ["grossWeightKg"] },
   "weight.expected": { packingList: ["grossWeightKg"] },
   "packages.consistency": { packingList: ["packages"], billOfLading: ["packages"] },
+  "origin.exporter": { certificateOfOrigin: ["exporter"] },
+  "origin.importer": { certificateOfOrigin: ["importer"] },
+  "origin.country": { certificateOfOrigin: ["countryOfOrigin"] },
+  "origin.hsCode": { certificateOfOrigin: ["hsCode"] },
+  "origin.invoice": { certificateOfOrigin: ["invoiceNumber"] },
+  "insurance.insured": { insurance: ["insured"] },
+  "insurance.amount": { insurance: ["amount"] },
+  "insurance.currency": { insurance: ["currency"] },
+  "insurance.coverage": { insurance: ["coverage"] },
+  "sanitary.exporter": { sanitary: ["exporter"] },
+  "sanitary.goods": { sanitary: ["description"] },
+  "sanitary.date": { sanitary: ["issuedOn"] },
 };
 
 export type FieldFlags = Record<string, "error" | "warning">;
